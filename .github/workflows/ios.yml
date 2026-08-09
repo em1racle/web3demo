@@ -1,0 +1,38 @@
+name: iOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Set up JDK (for the shared KMP module)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build shared XCFramework
+        run: ./gradlew :shared:assembleSharedDebugXCFramework
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          cd App && xcodegen generate
+
+      - name: Run tests
+        run: |
+          cd App
+          bundle exec fastlane test
+
+  # A separate, manually-triggered ios-release.yml would run `fastlane beta` — gated on
+  # MATCH_PASSWORD / APP_STORE_CONNECT_API_KEY secrets that aren't configured in this repo.
+  # Intentionally not included here so this workflow keeps working without any secrets set up.

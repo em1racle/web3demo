@@ -1,0 +1,38 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Run unit + UI tests on the iOS Simulator — no signing needed, runs as-is"
+  lane :test do
+    run_tests(
+      project: "Web3Demo.xcodeproj",
+      scheme: "Web3Demo",
+      devices: ["iPhone 17"]
+    )
+  end
+
+  desc "Build a Debug .app for the simulator — no signing needed, runs as-is"
+  lane :build_simulator do
+    build_app(
+      project: "Web3Demo.xcodeproj",
+      scheme: "Web3Demo",
+      configuration: "Debug",
+      skip_package_ipa: true,
+      destination: "generic/platform=iOS Simulator"
+    )
+  end
+
+  desc "Build, sign, and upload a TestFlight build. NOT wired to real credentials — needs " \
+       "match (or manual signing) plus an App Store Connect API key configured as CI secrets. " \
+       "See RELEASE.md."
+  lane :beta do
+    setup_ci if ENV["CI"]
+    match(type: "appstore", readonly: true)
+    increment_build_number(build_number: latest_testflight_build_number + 1)
+    build_app(
+      project: "Web3Demo.xcodeproj",
+      scheme: "Web3Demo",
+      export_method: "app-store"
+    )
+    upload_to_testflight(skip_waiting_for_build_processing: true)
+  end
+end
