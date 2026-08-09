@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
+import com.reown.appkit.client.AppKit
 import dev.web3demo.realtimefeed.ConnectionState
 import dev.web3demo.realtimefeed.PersistedPriceCache
 import dev.web3demo.realtimefeed.PriceFeedClient
@@ -44,18 +45,29 @@ import dev.web3demo.realtimefeed.PriceTick
 // BiometricPrompt needs a FragmentActivity (it hosts an invisible fragment internally to receive
 // the auth callback pre-API 28) — plain ComponentActivity isn't enough for the Wallet tab.
 class MainActivity : FragmentActivity() {
+    private val walletGateway = ReownWalletGateway()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppKit.register(this)
         setContent {
             MaterialTheme {
-                AppRoot(activity = this)
+                AppRoot(activity = this, walletGateway = walletGateway)
             }
         }
+    }
+
+    override fun onDestroy() {
+        AppKit.unregister()
+        super.onDestroy()
     }
 }
 
 @Composable
-fun AppRoot(activity: MainActivity) {
+fun AppRoot(
+    activity: MainActivity,
+    walletGateway: ReownWalletGateway,
+) {
     var selectedTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
@@ -73,13 +85,20 @@ fun AppRoot(activity: MainActivity) {
                     icon = {},
                     label = { Text("Wallet") },
                 )
+                NavigationBarItem(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    icon = {},
+                    label = { Text("Portfolio") },
+                )
             }
-        }
+        },
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
             when (selectedTab) {
                 0 -> PriceListScreen(activity)
-                else -> WalletScreen(activity)
+                1 -> WalletScreen(activity)
+                else -> PortfolioScreen(walletGateway)
             }
         }
     }
@@ -103,8 +122,9 @@ fun PriceListScreen(context: android.content.Context) {
         if (liveSnapshots.isNotEmpty()) cache.save(liveSnapshots)
     }
 
-    val rows = (if (liveSnapshots.isNotEmpty()) liveSnapshots else cachedSnapshot)
-        .values.sortedBy { it.symbol }
+    val rows =
+        (if (liveSnapshots.isNotEmpty()) liveSnapshots else cachedSnapshot)
+            .values.sortedBy { it.symbol }
 
     Scaffold(
         topBar = {
@@ -112,7 +132,7 @@ fun PriceListScreen(context: android.content.Context) {
                 title = { Text("Live Prices") },
                 actions = { ConnectionBadge(state) },
             )
-        }
+        },
     ) { padding ->
         // `key = { it.symbol }` gives each row a stable identity, so recomposition only touches
         // rows whose PriceTick actually changed — the Compose analog of SwiftUI's `.equatable()`.
@@ -128,9 +148,10 @@ fun PriceListScreen(context: android.content.Context) {
 @Composable
 private fun PriceRow(tick: PriceTick) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(tick.symbol, style = MaterialTheme.typography.titleMedium)
@@ -140,12 +161,13 @@ private fun PriceRow(tick: PriceTick) {
 
 @Composable
 private fun ConnectionBadge(state: ConnectionState) {
-    val (color, label) = when (state) {
-        is ConnectionState.Connected -> Color(0xFF34C759) to "Live"
-        is ConnectionState.Connecting -> Color(0xFFFFCC00) to "Connecting…"
-        is ConnectionState.Reconnecting -> Color(0xFFFF9500) to "Reconnecting #${state.attempt}"
-        else -> Color(0xFFFF3B30) to "Offline"
-    }
+    val (color, label) =
+        when (state) {
+            is ConnectionState.Connected -> Color(0xFF34C759) to "Live"
+            is ConnectionState.Connecting -> Color(0xFFFFCC00) to "Connecting…"
+            is ConnectionState.Reconnecting -> Color(0xFFFF9500) to "Reconnecting #${state.attempt}"
+            else -> Color(0xFFFF3B30) to "Offline"
+        }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 16.dp)) {
         Box(modifier = Modifier.size(8.dp).background(color, shape = CircleShape))
         Spacer(modifier = Modifier.width(6.dp))

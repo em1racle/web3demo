@@ -12,10 +12,14 @@ internal object OrderBookSync {
      * reflected in the snapshot; it and everything after must still be applied on top.
      * Returns null if no buffered diff covers `lastUpdateId` yet (caller should keep buffering).
      */
-    fun firstApplicableIndex(buffer: List<DepthDiff>, lastUpdateId: Long): Int? {
-        val index = buffer.indexOfFirst {
-            it.firstUpdateId <= lastUpdateId + 1 && it.finalUpdateId >= lastUpdateId + 1
-        }
+    fun firstApplicableIndex(
+        buffer: List<DepthDiff>,
+        lastUpdateId: Long,
+    ): Int? {
+        val index =
+            buffer.indexOfFirst {
+                it.firstUpdateId <= lastUpdateId + 1 && it.finalUpdateId >= lastUpdateId + 1
+            }
         return if (index == -1) null else index
     }
 
@@ -24,6 +28,8 @@ internal object OrderBookSync {
      * a message was dropped (or arrived out of order) and the local book can no longer be
      * trusted — the caller must resync from a fresh snapshot rather than silently drift.
      */
-    fun isExpectedNext(diff: DepthDiff, lastAppliedUpdateId: Long): Boolean =
-        diff.firstUpdateId == lastAppliedUpdateId + 1
+    fun isExpectedNext(
+        diff: DepthDiff,
+        lastAppliedUpdateId: Long,
+    ): Boolean = diff.firstUpdateId == lastAppliedUpdateId + 1
 }

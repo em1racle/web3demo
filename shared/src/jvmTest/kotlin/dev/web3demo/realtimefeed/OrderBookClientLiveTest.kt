@@ -12,17 +12,18 @@ import kotlin.time.Duration.Companion.seconds
  */
 class OrderBookClientLiveTest {
     @Test
-    fun connectsAndReachesLiveStateWithoutImmediateGap() = runTest(timeout = 20.seconds) {
-        val client = OrderBookClient("btcusdt")
-        client.start()
+    fun connectsAndReachesLiveStateWithoutImmediateGap() =
+        runTest(timeout = 20.seconds) {
+            val client = OrderBookClient("btcusdt")
+            client.start()
 
-        val liveState = client.state.first { it is OrderBookState.Live } as OrderBookState.Live
-        println("Reached live state: updateCount=${liveState.updateCount} resyncCount=${liveState.resyncCount}")
+            val liveState = client.state.first { it is OrderBookState.Live } as OrderBookState.Live
+            println("Reached live state: updateCount=${liveState.updateCount} resyncCount=${liveState.resyncCount}")
 
-        val top = client.top.first { it.bestBid != null && it.bestAsk != null }
-        println("Top of book: bid=${top.bestBid} ask=${top.bestAsk} lastUpdateId=${top.lastUpdateId}")
-        check(top.bestBid!! < top.bestAsk!!) { "Crossed book: bid ${top.bestBid} >= ask ${top.bestAsk}" }
+            val top = client.top.first { it.bestBid != null && it.bestAsk != null }
+            println("Top of book: bid=${top.bestBid} ask=${top.bestAsk} lastUpdateId=${top.lastUpdateId}")
+            check(top.bestBid!! < top.bestAsk!!) { "Crossed book: bid ${top.bestBid} >= ask ${top.bestAsk}" }
 
-        client.stop()
-    }
+            client.stop()
+        }
 }

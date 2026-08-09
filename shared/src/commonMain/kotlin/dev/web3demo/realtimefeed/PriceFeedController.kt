@@ -23,12 +23,16 @@ class PriceFeedController(symbols: List<String>, cache: KeyValueStore? = null) {
      * so the UI has something to show while the first live message is still in flight. */
     fun cachedSnapshot(): Map<String, PriceTick> = priceCache?.load() ?: emptyMap()
 
-    fun start(onState: (ConnectionState) -> Unit, onSnapshot: (Map<String, PriceTick>) -> Unit) {
+    fun start(
+        onState: (ConnectionState) -> Unit,
+        onSnapshot: (Map<String, PriceTick>) -> Unit,
+    ) {
         stateJob = client.state.onEach { onState(it) }.launchIn(scope)
-        snapshotJob = client.snapshots.onEach { snapshot ->
-            onSnapshot(snapshot)
-            priceCache?.save(snapshot)
-        }.launchIn(scope)
+        snapshotJob =
+            client.snapshots.onEach { snapshot ->
+                onSnapshot(snapshot)
+                priceCache?.save(snapshot)
+            }.launchIn(scope)
         client.start()
     }
 

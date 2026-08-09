@@ -34,18 +34,20 @@ class AuthenticatedConnectionGate(
             var proactiveRefreshTriggered = false
 
             coroutineScope {
-                val connectionJob = launch {
-                    try {
-                        connect(token.value)
-                    } catch (e: AuthRejectedException) {
-                        rejectedWith = e
+                val connectionJob =
+                    launch {
+                        try {
+                            connect(token.value)
+                        } catch (e: AuthRejectedException) {
+                            rejectedWith = e
+                        }
                     }
-                }
-                val watcherJob = launch {
-                    delay(AuthTokenGate.millisUntilRefreshDue(token, now(), refreshMarginMillis))
-                    proactiveRefreshTriggered = true
-                    connectionJob.cancel()
-                }
+                val watcherJob =
+                    launch {
+                        delay(AuthTokenGate.millisUntilRefreshDue(token, now(), refreshMarginMillis))
+                        proactiveRefreshTriggered = true
+                        connectionJob.cancel()
+                    }
                 // Without this, coroutineScope waits for the watcher's `delay` to finish even
                 // after connect() has already returned or thrown — up to `refreshMarginMillis`
                 // of pointless hanging.

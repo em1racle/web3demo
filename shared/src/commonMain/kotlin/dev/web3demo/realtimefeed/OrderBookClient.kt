@@ -49,6 +49,9 @@ class OrderBookClient(
     private val lowerSymbol = symbol.lowercase()
     private val upperSymbol = symbol.uppercase()
 
+    // Double, not BigDecimal/BigInteger: unlike token amounts (see TokenAmount.kt), these prices
+    // are only ever parsed from the API and displayed, never summed or compared for equality
+    // across different string representations, so Double's precision is adequate here.
     private val bids = HashMap<Double, Double>()
     private val asks = HashMap<Double, Double>()
     private var lastAppliedUpdateId = -1L
@@ -158,32 +161,35 @@ class OrderBookClient(
 
     private fun publishLiveState() {
         _state.value = OrderBookState.Live(updateCount, resyncCount)
-        _top.value = OrderBookTop(
-            bestBid = bids.keys.maxOrNull(),
-            bestAsk = asks.keys.minOrNull(),
-            lastUpdateId = lastAppliedUpdateId,
-        )
+        _top.value =
+            OrderBookTop(
+                bestBid = bids.keys.maxOrNull(),
+                bestAsk = asks.keys.minOrNull(),
+                lastUpdateId = lastAppliedUpdateId,
+            )
     }
 
     private suspend fun fetchSnapshot(): OrderBookSnapshot {
-        val response = httpClient.get("https://api.binance.com/api/v3/depth") {
-            parameter("symbol", upperSymbol)
-            parameter("limit", 1000)
-        }
+        val response =
+            httpClient.get("https://api.binance.com/api/v3/depth") {
+                parameter("symbol", upperSymbol)
+                parameter("limit", 1000)
+            }
         return parseSnapshot(response.bodyAsText())
     }
 
-    private fun parseDiff(json: String): DepthDiff? = try {
-        val obj = Json.parseToJsonElement(json).jsonObject
-        DepthDiff(
-            firstUpdateId = obj.getValue("U").jsonPrimitive.long,
-            finalUpdateId = obj.getValue("u").jsonPrimitive.long,
-            bids = obj.getValue("b").jsonArray.map(::parseLevel),
-            asks = obj.getValue("a").jsonArray.map(::parseLevel),
-        )
-    } catch (e: Exception) {
-        null
-    }
+    private fun parseDiff(json: String): DepthDiff? =
+        try {
+            val obj = Json.parseToJsonElement(json).jsonObject
+            DepthDiff(
+                firstUpdateId = obj.getValue("U").jsonPrimitive.long,
+                finalUpdateId = obj.getValue("u").jsonPrimitive.long,
+                bids = obj.getValue("b").jsonArray.map(::parseLevel),
+                asks = obj.getValue("a").jsonArray.map(::parseLevel),
+            )
+        } catch (e: Exception) {
+            null
+        }
 
     private fun parseSnapshot(json: String): OrderBookSnapshot {
         val obj = Json.parseToJsonElement(json).jsonObject

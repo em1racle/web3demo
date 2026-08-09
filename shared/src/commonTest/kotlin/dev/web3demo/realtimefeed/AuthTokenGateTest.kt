@@ -32,12 +32,18 @@ class AuthTokenGateTest {
     @Test
     fun millisUntilRefreshDue_countsDownToTheMargin() {
         val token = AuthToken("t", expiresAtEpochMillis = 100_000)
-        assertEquals(69_000, AuthTokenGate.millisUntilRefreshDue(token, nowEpochMillis = 1_000, refreshMarginMillis = 30_000))
+        assertEquals(
+            69_000,
+            AuthTokenGate.millisUntilRefreshDue(token, nowEpochMillis = 1_000, refreshMarginMillis = 30_000),
+        )
     }
 
     @Test
     fun millisUntilRefreshDue_neverNegative() {
         val token = AuthToken("t", expiresAtEpochMillis = 100_000)
-        assertEquals(0, AuthTokenGate.millisUntilRefreshDue(token, nowEpochMillis = 500_000, refreshMarginMillis = 30_000))
+        assertEquals(
+            0,
+            AuthTokenGate.millisUntilRefreshDue(token, nowEpochMillis = 500_000, refreshMarginMillis = 30_000),
+        )
     }
 }

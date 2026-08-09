@@ -33,7 +33,7 @@ enum WalletKeyStoreError: Error {
 }
 
 final class WalletKeyStore {
-    private let tag = "dev.web3demo.wallet.signingkey".data(using: .utf8)!
+    private let tag = Data("dev.web3demo.wallet.signingkey".utf8)
 
     private(set) var lastUsedBackend: WalletKeyStoreBackend?
 
@@ -73,12 +73,12 @@ final class WalletKeyStore {
         var privateKeyAttrs: [String: Any] = [
             kSecAttrIsPermanent as String: true,
             kSecAttrApplicationTag as String: tag,
-            kSecAttrAccessControl as String: access,
+            kSecAttrAccessControl as String: access
         ]
 
         var attributes: [String: Any] = [
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-            kSecAttrKeySizeInBits as String: 256,
+            kSecAttrKeySizeInBits as String: 256
         ]
         if useSecureEnclave {
             attributes[kSecAttrTokenID as String] = kSecAttrTokenIDSecureEnclave
@@ -115,10 +115,13 @@ final class WalletKeyStore {
             kSecClass as String: kSecClassKey,
             kSecAttrApplicationTag as String: tag,
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-            kSecReturnRef as String: true,
+            kSecReturnRef as String: true
         ]
         var item: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess else { return nil }
+        // errSecSuccess + kSecReturnRef guarantees a SecKey here; `as?` on a CF type is always
+        // non-nil (the compiler will even warn about it), so it can't replace this check.
+        // swiftlint:disable:next force_cast
         return (item as! SecKey)
     }
 }

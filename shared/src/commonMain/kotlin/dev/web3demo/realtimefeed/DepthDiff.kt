@@ -23,6 +23,8 @@ data class OrderBookTop(
 
 sealed class OrderBookState {
     data object Idle : OrderBookState()
+
     data object SyncingSnapshot : OrderBookState()
+
     data class Live(val updateCount: Long, val resyncCount: Int) : OrderBookState()
 }

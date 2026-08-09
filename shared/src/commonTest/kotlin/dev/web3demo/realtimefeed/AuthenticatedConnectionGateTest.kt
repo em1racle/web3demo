@@ -22,8 +22,9 @@ private class FakeAuthTokenProvider(
 
     override suspend fun refresh(): AuthToken {
         refreshCount++
-        val next = nextTokens.removeFirstOrNull()
-            ?: current!!.copy(expiresAtEpochMillis = current!!.expiresAtEpochMillis + 1_000_000)
+        val next =
+            nextTokens.removeFirstOrNull()
+                ?: current!!.copy(expiresAtEpochMillis = current!!.expiresAtEpochMillis + 1_000_000)
         current = next
         return next
     }
@@ -32,58 +33,66 @@ private class FakeAuthTokenProvider(
 @OptIn(ExperimentalCoroutinesApi::class)
 class AuthenticatedConnectionGateTest {
     @Test
-    fun proactivelyRefreshesAndReconnectsBeforeExpiry() = runTest {
-        val provider = FakeAuthTokenProvider(
-            current = AuthToken("t0", expiresAtEpochMillis = 100_000),
-            nextTokens = mutableListOf(AuthToken("t1", expiresAtEpochMillis = 10_100_000)),
-        )
-        val gate = AuthenticatedConnectionGate(provider, refreshMarginMillis = 30_000, now = { testScheduler.currentTime })
-        var connectCount = 0
-        val usedTokens = mutableListOf<String>()
+    fun proactivelyRefreshesAndReconnectsBeforeExpiry() =
+        runTest {
+            val provider =
+                FakeAuthTokenProvider(
+                    current = AuthToken("t0", expiresAtEpochMillis = 100_000),
+                    nextTokens = mutableListOf(AuthToken("t1", expiresAtEpochMillis = 10_100_000)),
+                )
+            val gate =
+                AuthenticatedConnectionGate(provider, refreshMarginMillis = 30_000, now = { testScheduler.currentTime })
+            var connectCount = 0
+            val usedTokens = mutableListOf<String>()
 
-        val job = launch {
+            val job =
+                launch {
+                    gate.run { token ->
+                        connectCount++
+                        usedTokens += token
+                        awaitCancellation()
+                    }
+                }
+
+            // The first token's refresh is due at 100_000 - 30_000 = 70_000.
+            advanceTimeBy(70_001)
+            runCurrent()
+
+            assertEquals(2, connectCount)
+            assertEquals(listOf("t0", "t1"), usedTokens)
+            assertEquals(1, provider.refreshCount)
+
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun refreshesOnceAndRetriesAfterRejection() =
+        runTest {
+            val provider = FakeAuthTokenProvider(current = AuthToken("bad", expiresAtEpochMillis = 10_000_000))
+            val gate =
+                AuthenticatedConnectionGate(provider, refreshMarginMillis = 30_000, now = { testScheduler.currentTime })
+            var attempt = 0
+
             gate.run { token ->
-                connectCount++
-                usedTokens += token
-                awaitCancellation()
+                attempt++
+                if (attempt == 1) throw AuthRejectedException("nope")
+                // second attempt just returns normally
             }
+
+            assertEquals(2, attempt)
+            assertEquals(1, provider.refreshCount)
         }
-
-        // The first token's refresh is due at 100_000 - 30_000 = 70_000.
-        advanceTimeBy(70_001)
-        runCurrent()
-
-        assertEquals(2, connectCount)
-        assertEquals(listOf("t0", "t1"), usedTokens)
-        assertEquals(1, provider.refreshCount)
-
-        job.cancelAndJoin()
-    }
 
     @Test
-    fun refreshesOnceAndRetriesAfterRejection() = runTest {
-        val provider = FakeAuthTokenProvider(current = AuthToken("bad", expiresAtEpochMillis = 10_000_000))
-        val gate = AuthenticatedConnectionGate(provider, refreshMarginMillis = 30_000, now = { testScheduler.currentTime })
-        var attempt = 0
+    fun propagatesRejectionWhenRefreshedTokenIsAlsoRejected() =
+        runTest {
+            val provider = FakeAuthTokenProvider(current = AuthToken("bad", expiresAtEpochMillis = 10_000_000))
+            val gate =
+                AuthenticatedConnectionGate(provider, refreshMarginMillis = 30_000, now = { testScheduler.currentTime })
 
-        gate.run { token ->
-            attempt++
-            if (attempt == 1) throw AuthRejectedException("nope")
-            // second attempt just returns normally
+            assertFailsWith<AuthRejectedException> {
+                gate.run { throw AuthRejectedException("still nope") }
+            }
+            assertEquals(1, provider.refreshCount)
         }
-
-        assertEquals(2, attempt)
-        assertEquals(1, provider.refreshCount)
-    }
-
-    @Test
-    fun propagatesRejectionWhenRefreshedTokenIsAlsoRejected() = runTest {
-        val provider = FakeAuthTokenProvider(current = AuthToken("bad", expiresAtEpochMillis = 10_000_000))
-        val gate = AuthenticatedConnectionGate(provider, refreshMarginMillis = 30_000, now = { testScheduler.currentTime })
-
-        assertFailsWith<AuthRejectedException> {
-            gate.run { throw AuthRejectedException("still nope") }
-        }
-        assertEquals(1, provider.refreshCount)
-    }
 }

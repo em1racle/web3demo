@@ -12,18 +12,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.security.PrivateKey
 import java.security.Signature
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.suspendCancellableCoroutine
 
 @Composable
 fun WalletScreen(activity: FragmentActivity) {
@@ -49,11 +49,13 @@ fun WalletScreen(activity: FragmentActivity) {
             try {
                 val key = store.generateKeyIfNeeded()
                 publicKeyHex = key.encoded.toHexString()
-                backendLabel = when (store.lastUsedBackend) {
-                    WalletKeyBackend.STRONGBOX -> "StrongBox (dedicated secure chip)"
-                    WalletKeyBackend.TEE -> "TEE (AndroidKeyStore, software fallback — no StrongBox on this device/emulator)"
-                    WalletKeyBackend.UNKNOWN -> null
-                }
+                backendLabel =
+                    when (store.lastUsedBackend) {
+                        WalletKeyBackend.STRONGBOX -> "StrongBox (dedicated secure chip)"
+                        WalletKeyBackend.TEE ->
+                            "TEE (AndroidKeyStore, software fallback — no StrongBox on this device/emulator)"
+                        WalletKeyBackend.UNKNOWN -> null
+                    }
             } catch (e: Exception) {
                 errorMessage = "Key generation failed: ${e.message}"
             }
@@ -96,39 +98,45 @@ private suspend fun authenticateAndSign(
     activity: FragmentActivity,
     privateKey: PrivateKey,
     message: ByteArray,
-): ByteArray = suspendCancellableCoroutine { cont ->
-    val signature = Signature.getInstance("SHA256withECDSA").apply { initSign(privateKey) }
-    val cryptoObject = BiometricPrompt.CryptoObject(signature)
+): ByteArray =
+    suspendCancellableCoroutine { cont ->
+        val signature = Signature.getInstance("SHA256withECDSA").apply { initSign(privateKey) }
+        val cryptoObject = BiometricPrompt.CryptoObject(signature)
 
-    val prompt = BiometricPrompt(
-        activity,
-        ContextCompat.getMainExecutor(activity),
-        object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                try {
-                    val sig = result.cryptoObject?.signature
-                    sig?.update(message)
-                    cont.resume(sig?.sign() ?: ByteArray(0))
-                } catch (e: Exception) {
-                    cont.resumeWithException(e)
-                }
-            }
+        val prompt =
+            BiometricPrompt(
+                activity,
+                ContextCompat.getMainExecutor(activity),
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        try {
+                            val sig = result.cryptoObject?.signature
+                            sig?.update(message)
+                            cont.resume(sig?.sign() ?: ByteArray(0))
+                        } catch (e: Exception) {
+                            cont.resumeWithException(e)
+                        }
+                    }
 
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                cont.resumeWithException(RuntimeException("Biometric error $errorCode: $errString"))
-            }
-        },
-    )
+                    override fun onAuthenticationError(
+                        errorCode: Int,
+                        errString: CharSequence,
+                    ) {
+                        cont.resumeWithException(RuntimeException("Biometric error $errorCode: $errString"))
+                    }
+                },
+            )
 
-    val promptInfo = BiometricPrompt.PromptInfo.Builder()
-        .setTitle("Sign wallet message")
-        .setSubtitle("Authenticate to sign with your hardware-backed key")
-        .setNegativeButtonText("Cancel")
-        .build()
+        val promptInfo =
+            BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Sign wallet message")
+                .setSubtitle("Authenticate to sign with your hardware-backed key")
+                .setNegativeButtonText("Cancel")
+                .build()
 
-    prompt.authenticate(promptInfo, cryptoObject)
+        prompt.authenticate(promptInfo, cryptoObject)
 
-    cont.invokeOnCancellation { prompt.cancelAuthentication() }
-}
+        cont.invokeOnCancellation { prompt.cancelAuthentication() }
+    }
 
 private fun ByteArray.toHexString(): String = joinToString("") { "%02x".format(it) }

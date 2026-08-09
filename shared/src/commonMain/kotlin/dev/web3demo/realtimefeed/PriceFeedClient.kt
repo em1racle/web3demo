@@ -66,8 +66,12 @@ class PriceFeedClient(
     private suspend fun runLoop() {
         while (currentCoroutineContext().isActive) {
             try {
-                _state.value = if (reconnectAttempt == 0) ConnectionState.Connecting
-                else ConnectionState.Reconnecting(reconnectAttempt, 0)
+                _state.value =
+                    if (reconnectAttempt == 0) {
+                        ConnectionState.Connecting
+                    } else {
+                        ConnectionState.Reconnecting(reconnectAttempt, 0)
+                    }
 
                 client.webSocket(urlString = url) {
                     _state.value = ConnectionState.Connected
@@ -93,14 +97,15 @@ class PriceFeedClient(
     }
 
     companion object {
-        fun parseTick(json: String): PriceTick? = try {
-            val envelope = Json.parseToJsonElement(json).jsonObject
-            val data = envelope["data"]?.jsonObject ?: return null
-            val price = data["p"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: return null
-            val symbol = data["s"]?.jsonPrimitive?.content ?: return null
-            PriceTick(symbol = symbol, price = price, timestampMillis = Clock.System.now().toEpochMilliseconds())
-        } catch (e: Exception) {
-            null
-        }
+        fun parseTick(json: String): PriceTick? =
+            try {
+                val envelope = Json.parseToJsonElement(json).jsonObject
+                val data = envelope["data"]?.jsonObject ?: return null
+                val price = data["p"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: return null
+                val symbol = data["s"]?.jsonPrimitive?.content ?: return null
+                PriceTick(symbol = symbol, price = price, timestampMillis = Clock.System.now().toEpochMilliseconds())
+            } catch (e: Exception) {
+                null
+            }
     }
 }

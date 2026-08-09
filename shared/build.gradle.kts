@@ -37,12 +37,17 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
+                // uint256 (ERC-20 balances, token IDs) overflows Long — needs real arbitrary
+                // precision, not Double, and this is the standard KMP BigInteger implementation
+                // rather than hand-rolling one.
+                api("com.ionspin.kotlin:bignum:0.3.10")
             }
         }
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+                implementation("io.ktor:ktor-client-mock:2.3.12")
             }
         }
         val jvmMain by getting {
@@ -53,6 +58,11 @@ kotlin {
         val androidMain by getting {
             dependencies {
                 implementation("io.ktor:ktor-client-okhttp:2.3.12")
+                // PriceFeedController uses Dispatchers.Main, which needs this on the runtime
+                // classpath. It was previously only present transitively (via androidApp's
+                // Compose/AndroidX/Reown dependencies) — declared directly here so it doesn't
+                // depend on what else a consuming app happens to pull in.
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
             }
         }
         val iosMain by creating {

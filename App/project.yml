@@ -6,6 +6,15 @@ options:
 packages:
   RealtimeFeed:
     path: ../RealtimeFeed
+  ReownAppKit:
+    url: https://github.com/reown-com/reown-swift
+    from: 1.2.0
+  CryptoSwift:
+    url: https://github.com/krzyzanowskim/CryptoSwift
+    from: 1.8.0
+  Starscream:
+    url: https://github.com/daltoniam/Starscream
+    from: 4.0.0
 targets:
   Web3Demo:
     type: application
@@ -16,6 +25,17 @@ targets:
       - framework: ../shared/build/XCFrameworks/debug/Shared.xcframework
         embed: true
         codeSign: true
+      - package: ReownAppKit
+        product: ReownAppKit
+      - package: CryptoSwift
+        product: CryptoSwift
+      - package: Starscream
+        product: Starscream
+    entitlements:
+      path: Web3Demo.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.dev.web3demo
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

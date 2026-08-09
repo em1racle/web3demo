@@ -1,0 +1,15 @@
+excluded:
+  - .build
+
+# The KMP-generated Shared.xcframework and SPM checkouts aren't part of this repo's source and
+# shouldn't be linted even if a future build layout puts them somewhere this glob would catch.
+disabled_rules:
+  - todo
+
+line_length:
+  warning: 120
+  error: 160
+
+identifier_name:
+  min_length:
+    warning: 2

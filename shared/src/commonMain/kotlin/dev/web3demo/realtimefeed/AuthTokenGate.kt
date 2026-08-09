@@ -7,12 +7,19 @@ package dev.web3demo.realtimefeed
  * fresh one proactively, not wait for the server to kick it off first.
  */
 internal object AuthTokenGate {
-    fun needsRefresh(token: AuthToken?, nowEpochMillis: Long, refreshMarginMillis: Long): Boolean {
+    fun needsRefresh(
+        token: AuthToken?,
+        nowEpochMillis: Long,
+        refreshMarginMillis: Long,
+    ): Boolean {
         if (token == null) return true
         return token.expiresAtEpochMillis - nowEpochMillis <= refreshMarginMillis
     }
 
     /** How long until this token should be proactively refreshed — 0 if it's already due. */
-    fun millisUntilRefreshDue(token: AuthToken, nowEpochMillis: Long, refreshMarginMillis: Long): Long =
-        (token.expiresAtEpochMillis - refreshMarginMillis - nowEpochMillis).coerceAtLeast(0)
+    fun millisUntilRefreshDue(
+        token: AuthToken,
+        nowEpochMillis: Long,
+        refreshMarginMillis: Long,
+    ): Long = (token.expiresAtEpochMillis - refreshMarginMillis - nowEpochMillis).coerceAtLeast(0)
 }

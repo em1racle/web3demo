@@ -5,7 +5,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class OrderBookSyncTest {
-    private fun diff(first: Long, last: Long) = DepthDiff(first, last, emptyList(), emptyList())
+    private fun diff(
+        first: Long,
+        last: Long,
+    ) = DepthDiff(first, last, emptyList(), emptyList())
 
     @Test
     fun firstApplicableIndex_findsDiffStraddlingSnapshot() {

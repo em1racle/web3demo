@@ -1,0 +1,9 @@
+root = true
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+# Compose functions are PascalCase by convention (they read as components, not verbs) — ktlint's
+# default function-naming rule doesn't know about Composable and would otherwise flag every screen.
+ktlint_function_naming_ignore_when_annotated_with = Composable

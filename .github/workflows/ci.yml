@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: ktlint (shared/, androidApp/)
+        run: ./gradlew ktlintCheck
+
+      - name: SwiftLint (App/)
+        uses: norio-nomura/action-swiftlint@3.2.1
+        with:
+          args: --strict
+        env:
+          WORKING_DIRECTORY: App
+
+  android:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Unit tests (shared business logic — same module the app runs)
+        run: ./gradlew :shared:jvmTest
+
+      - name: Assemble debug APK
+        run: ./gradlew :androidApp:assembleDebug
+
+  # Play Store publishing (gradle-play-publisher) needs a service account JSON stored as a
+  # secret, plus a release signing config — neither is set up in this repo. See RELEASE.md.
+
+  ios:
+    needs: [lint, android]
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Set up JDK (for the shared KMP module)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build shared XCFramework
+        run: ./gradlew :shared:assembleSharedDebugXCFramework
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          cd App && xcodegen generate
+
+      - name: Run tests
+        run: |
+          cd App
+          bundle exec fastlane test
+
+  # A separate, manually-triggered ios-release.yml would run `fastlane beta` — gated on
+  # MATCH_PASSWORD / APP_STORE_CONNECT_API_KEY secrets that aren't configured in this repo.
+  # Intentionally not included here so this workflow keeps working without any secrets set up.
